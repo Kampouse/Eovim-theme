@@ -1,0 +1,323 @@
+/* This file is part of Eovim, which is under the MIT License ****************/
+
+/* Compatibility with PLAY_SAMPLE <name> <speed> ALERT */
+#if (EFL_VERSION_MAJOR <= 1) && (EFL_VERSION_MINOR < 9)
+# define ALERT
+#endif
+
+#if (EFL_VERSION_MAJOR >= 1) && (EFL_VERSION_MINOR >= 20)
+efl_version: 1 20;
+#endif
+
+externals {
+   external: "elm";
+}
+
+color_classes {
+   color_class { name: "eovim.background";
+      color: 128 128 128 255;
+   }
+   color_class { name: "cursor_off";
+      color: 51 153 255 0;
+   }
+   color_class { name: "cursor_on";
+      color: 51 153 255 255;
+   }
+   color_class { name: "cursor_dimmed";
+      color: 51 153 255 40;
+   }
+   color_class { name: "cursor_dimmed2";
+      color: 51 153 255 80;
+   }
+   color_class { name: "cursor_full";
+      color: 255 255 255 255;
+   }
+
+   color_class { name: "eovim.cmdline.info_bg";
+   }
+}
+
+styles {
+   style { name: "cmdline";
+      base: "font=Sans font_size=14 color=#ffffff wrap=word left_margin=2 right_margin=2";
+   }
+   style { name: "cmdline_info";
+      base: "font=Sans font_size=14 font_weight=Bold color=#ffffff left_margin=8 right_margin=8";
+   }
+}
+
+collections {
+   group { "eovim/main";
+      images {
+         image: "preferences.png" COMP;
+         image: "vertical_separated_bar_glow.png" COMP;
+         image: "inset_shadow.png" COMP;
+         image: "tab_other_m.png" COMP;
+         image: "caps_lock_warning.png" COMP;
+      }
+      sounds {
+         sample { name: "bell" LOSSY 64;
+            source: "bell.wav";
+         }
+      }
+
+      parts {
+         rect { "tabs_headings"; nomouse;
+            desc { "default";
+               rel2.relative: 1.0 0.0;
+               align: 0.5 0.0;
+               color_class: "eovim.background";
+            }
+            desc { "active";
+               inherit: "default";
+               min: 1 24;
+            }
+         }
+         box { "eovim.tabline";
+            desc { "default";
+               rel.to: "tabs_headings";
+               box {
+                  layout: "horizontal_homogeneous";
+               }
+            }
+         }
+
+         /*===================================================================
+          * Background
+          *=================================================================*/
+         rect { "eovim.background"; nomouse;
+            desc { "default";
+               rel.to: "eovim.main.view";
+               color_class: "eovim.background";
+            }
+         }
+
+         swallow { "eovim.main.view";
+           desc { "default";
+             rel1.to: "eovim.tabline";
+             rel1.relative: 0.0 1.0;
+           }
+         }
+
+
+         /* CAPS LOCK WARNING.
+          * ------------------------------------------------------------------
+          *
+          * Pulses a bright red light when caps lock is on.
+          * Invisible when caps lock is off.
+          */
+         image { "caps_lock_warning";
+            desc { "default";
+               image.normal: "caps_lock_warning.png";
+               aspect: 1 1;
+               align: 0.5 0.5;
+               rel2.relative: 0.0 0.0;
+               visible: 0;
+            }
+            desc { "alert_pulse_0";
+               inherit: "default";
+               visible: 1;
+               min: 75 75;
+            }
+            desc { "alert_pulse_1";
+               inherit: "alert_pulse_0";
+               visible: 1;
+               min: 125 125;
+            }
+
+            program { signal: "eovim,capslock,off"; source: "eovim";
+               action: STATE_SET "default";
+               target: "caps_lock_warning";
+            }
+            program { signal: "eovim,capslock,on"; source: "eovim"; name: "alert_loop";
+               action: STATE_SET "alert_pulse_0";
+               target: "caps_lock_warning";
+               transition: ACCELERATE 0.2;
+               after: "alert_loop_next";
+            }
+            program { name: "alert_loop_next";
+               action: STATE_SET "alert_pulse_1";
+               target: "caps_lock_warning";
+               transition: ACCELERATE 0.5;
+               after: "alert_loop";
+            }
+         }
+
+         external { "busy_indicator"; source: "elm/progressbar";
+            description { "default";
+               rel1.relative: 1.0 0.0;
+               rel2.relative: 1.0 0.0;
+               align: 1.0 0.0;
+               fixed: 1 1;
+               params {
+                  string: "style" "wheel";
+                  bool: "pulse" 1;
+               }
+               visible: 0;
+            }
+            description { "busy";
+               inherit: "default";
+               params {
+                  bool: "pulsing" 1;
+               }
+               visible: 1;
+            }
+
+            programs {
+               program { signal: "eovim,busy,on"; source: "eovim";
+                  action: STATE_SET "busy";
+                  target: "busy_indicator";
+               }
+               program { signal: "eovim,busy,off"; source: "eovim";
+                  action: STATE_SET "default";
+                  target: "busy_indicator";
+               }
+            }
+         }
+
+
+         /*===================================================================
+          * Cmdline + Wildmenu Widget
+          *===================================================================*/
+         group { "eovim.cmdline_info"; source: "eovim/cmdline_info";
+            // The prompt will appear on the left of the cmdline text
+            desc { "default";
+               rel.to: "eovim.cmdline";
+               rel2.relative: 0.0 1.0;
+               align: 1.0 0.5;
+               rel2.offset: 4 0;
+               fixed: 1 1;
+            }
+            // The prompt will appear on top of the cmdline text
+            desc { "prompt";
+               rel.to: "eovim.cmdline";
+               rel2.relative: 1.0 0.0;
+               align: 0.5 1.0;
+               rel2.offset: 0 5; // ???
+            }
+
+            program { signal: "eovim,cmdline,prompt,custom"; source: "eovim";
+               action: STATE_SET "prompt";
+               target: "eovim.cmdline_info";
+            }
+            program { signal: "eovim,cmdline,prompt,builtin"; source: "eovim";
+               action: STATE_SET "default";
+               target: "eovim.cmdline_info";
+            }
+         }
+
+         group { "eovim.cmdline"; source: "eovim/cmdline";
+            desc { "default";
+               rel1.relative: 0.2 0.0;
+               rel2.relative: 0.8 0.0;
+               align: 0.5 0.0;
+               rel1.offset: 0 40;
+               fixed: 0 1;
+            }
+            desc { "hidden";
+               /* Hidden: the textblock will be above the main view */
+               inherit: "default";
+               align: 0.5 1.0;
+            }
+         }
+         swallow { "eovim.wildmenu";
+            desc { "default";
+               rel1.to: "eovim.cmdline";
+               rel2.to_x: "eovim.cmdline";
+               rel2.to_y: "eovim.main.view";
+
+               rel1.relative: 0.0 1.0;
+               rel2.relative: 1.0 0.0;
+               align: 0.5 0.0;
+               rel1.offset: 2 -5;
+               rel2.offset: -5 0;
+               fixed: 1 1;
+            }
+            desc { "hidden";
+               inherit: "default";
+               rel2.relative: 1.0 0.0;
+               visible: 0;
+            }
+         }
+         image { "wildmenu_shadow"; nomouse;
+            desc { "default";
+               image.normal: "inset_shadow.png";
+               image.border: 5 5 7 3;
+               rel.to: "eovim.wildmenu";
+            }
+            desc { "hidden";
+               inherit: "default";
+               visible: 0;
+            }
+         }
+         image { "wildmenu_bar"; nomouse;
+            desc { "default";
+               image.normal: "vertical_separated_bar_glow.png";
+               image.border: 7 7 7 7;
+               fill.smooth: 0;
+               min: 15 10;
+
+               rel1.to_x: "eovim.cmdline";
+               rel1.to_y: "eovim.wildmenu";
+               rel2.to_x: "eovim.cmdline";
+               rel2.to_y: "eovim.wildmenu";
+               rel1.relative: 1.0 0.0;
+               rel1.offset: 1 -10;
+               rel2.offset: 1 4;
+               align: 1.0 0.5;
+               fixed: 1 1;
+            }
+            desc { "hidden";
+               inherit: "default";
+               visible: 0;
+            }
+         }
+      }
+
+      programs {
+         program { signal: "eovim,bell,ring"; source: "eovim";
+            action: PLAY_SAMPLE "bell" 1.0 ALERT;
+         }
+
+         program { signal: "eovim,cmdline,show"; source: "eovim";
+            action: STATE_SET "default";
+            target: "eovim.cmdline";
+            target: "eovim.wildmenu";
+            target: "wildmenu_shadow";
+            target: "wildmenu_bar";
+	    after: "cmdline_shown";
+         }
+	 program { name: "cmdline_shown";
+            action: SIGNAL_EMIT "eovim,cmdline,shown" "eovim";
+	 }
+         program { signal: "eovim,cmdline,hide"; source: "eovim";
+            action: STATE_SET "hidden";
+            target: "eovim.cmdline";
+            target: "eovim.wildmenu";
+            target: "wildmenu_shadow";
+            target: "wildmenu_bar";
+            transition: ACCELERATE 0.2;
+         }
+         program { signal: "eovim,tabs,show"; source: "eovim";
+            action: STATE_SET "active";
+            target: "tabs_headings";
+            transition: ACCELERATE 0.2;
+            after: "tabs_shown";
+         }
+         program { name: "tabs_shown";
+            action: SIGNAL_EMIT "eovim,tabs,shown" "eovim";
+         }
+         program { signal: "eovim,tabs,hide"; source: "eovim";
+            action: STATE_SET "default";
+            target: "tabs_headings";
+            transition: ACCELERATE 0.2;
+         }
+      }
+   }
+
+
+   #include "completion.edc"
+   #include "cmdline.edc"
+   #include "cursor.edc"
+   #include "tab.edc"
+}

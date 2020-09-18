@@ -1,0 +1,47 @@
+/* This file is part of Eovim, which is under the MIT License ****************/
+
+group { "eovim/completion";
+   images {
+      image: "tooltip-base.png" COMP;
+   }
+   parts {
+      image { "base"; nomouse;
+         desc { "default";
+            image.normal: "tooltip-base.png";
+            image.border: 7 7 6 8;
+            image.middle: SOLID;
+            rel.to: "eovim.completion";
+            rel1.offset: -8 -6;
+            rel2.offset: 7 8;
+            visible: 0;
+         }
+         desc { "visible";
+            inherit: "default";
+            visible: 1;
+         }
+      }
+      swallow { "eovim.completion";
+         desc { "default";
+            align: 0.0 0.0;
+            visible: 0;
+         }
+         desc { "visible";
+            inherit: "default";
+            visible: 1;
+         }
+      }
+
+   }
+   programs {
+      program { signal: "eovim,completion,show"; source: "eovim";
+         action: STATE_SET "visible";
+         target: "base";
+         target: "eovim.completion";
+      }
+      program { signal: "eovim,completion,hide"; source: "eovim";
+         action: STATE_SET "default";
+         target: "base";
+         target: "eovim.completion";
+      }
+   }
+}
